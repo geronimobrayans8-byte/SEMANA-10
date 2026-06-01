@@ -1,0 +1,66 @@
+import numpy as np
+from scipy.interpolate import CubicSpline
+
+# Datos experimentales
+V = np.array([1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75, 4])
+P = np.array([300.2, 242.1, 201.5, 169.8, 151.0, 134.3, 120.8, 107.9, 99.1, 93.4, 86.2, 79.5, 75.1])
+n = 12
+h = 0.25
+
+# ---------------------------------------------------------
+# MÉTODOS DE INTEGRACIÓN
+# ---------------------------------------------------------
+
+# 1. Regla del Trapecio Compuesta
+I_trap = (h / 2) * (P[0] + 2 * np.sum(P[1:-1]) + P[-1])
+
+# 2. Regla de Simpson 1/3 Compuesta
+I_simp13 = (h / 3) * (P[0] + 4 * np.sum(P[1:-1:2]) + 2 * np.sum(P[2:-2:2]) + P[-1])
+
+# 3. Regla de Simpson 3/8 Compuesta
+sum_3 = 0
+sum_2 = 0
+for i in range(1, n):
+    if i % 3 == 0:
+        sum_2 += P[i]
+    else:
+        sum_3 += P[i]
+I_simp38 = (3 * h / 8) * (P[0] + 3 * sum_3 + 2 * sum_2 + P[-1])
+
+# 4. Cuadratura de Gauss-Legendre (m=3)
+# Interpolación de los datos para crear una función continua P(V)
+spline = CubicSpline(V, P)
+
+# Nodos y pesos para Gauss-Legendre m=3 en el intervalo estandarizado [-1, 1]
+t = np.array([-np.sqrt(3/5), 0, np.sqrt(3/5)])
+w = np.array([5/9, 8/9, 5/9])
+
+# Cambio de variable para mapear de [-1, 1] al intervalo [a, b] = [1, 4]
+a, b = V[0], V[-1]
+V_t = ((b - a) * t + (b + a)) / 2
+
+# Cálculo de la integral (el diferencial dV aporta el factor (b-a)/2)
+I_gauss = ((b - a) / 2) * np.sum(w * spline(V_t))
+
+
+# ---------------------------------------------------------
+# CÁLCULO DE ERRORES Y TABLA
+# ---------------------------------------------------------
+# Usamos la integral exacta del Spline Cúbico como valor de referencia (exacto)
+I_exact = spline.integrate(a, b)
+
+def error_relativo(aprox, exacto):
+    return abs((exacto - aprox) / exacto) * 100
+
+e_trap = error_relativo(I_trap, I_exact)
+e_simp13 = error_relativo(I_simp13, I_exact)
+e_simp38 = error_relativo(I_simp38, I_exact)
+e_gauss = error_relativo(I_gauss, I_exact)
+
+# Imprimir tabla formal
+print(f"{'MÉTODO':<16} | {'VALOR APROXIMADO':<16} | {'ERROR RELATIVO %'}")
+print("-" * 58)
+print(f"{'Trapecio':<16} | {I_trap:<16.4f} | {e_trap:.4f}")
+print(f"{'Simpson 1/3':<16} | {I_simp13:<16.4f} | {e_simp13:.4f}")
+print(f"{'Simpson 3/8':<16} | {I_simp38:<16.4f} | {e_simp38:.4f}")
+print(f"{'Gauss-Legendre':<16} | {I_gauss:<16.4f} | {e_gauss:.4f}")
